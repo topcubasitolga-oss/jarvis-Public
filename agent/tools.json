@@ -1,0 +1,122 @@
+[
+  {
+    "type": "webhook",
+    "name": "mail_inbox",
+    "description": "Tolga Bey'in Gmail gelen kutusundaki son iletileri listeler (gönderen, konu, tarih, kısa özet). 'Bugün mail var mı', 'gelen kutusu', 'yeni mesaj' gibi sorularda kullan. Mail içeriğini okumak için mail_read'i çağır.",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/mail_inbox",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "days": { "type": "integer", "description": "Kaç günlük iletiler listelensin. Varsayılan 1 (son 24 saat)." },
+          "unread_only": { "type": "boolean", "description": "Yalnızca okunmamışlar mı? Varsayılan true." },
+          "limit": { "type": "integer", "description": "En fazla kaç ileti. Varsayılan 10, en çok 25." }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "mail_search",
+    "description": "Gmail'de arama yapar. 'X'ten mail geldi mi', 'dergiden ne zaman mail gelmişti', 'konusu şu olan mail' gibi sorularda kullan. query alanı Gmail arama sözdizimini kabul eder (from:, subject:, newer_than:7d, has:attachment).",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/mail_search",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "description": "Gmail arama ifadesi, ör. 'from:editor newer_than:14d' ya da 'subject:hakem'." },
+          "limit": { "type": "integer", "description": "En fazla kaç sonuç. Varsayılan 10." }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "mail_read",
+    "description": "Tek bir e-postanın tam metnini getirir. Önce mail_inbox ya da mail_search ile message_id'yi bul, sonra bunu çağır. Cevap yazmadan ya da içeriği özetlemeden önce mutlaka oku.",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/mail_read",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": ["message_id"],
+        "properties": {
+          "message_id": { "type": "string", "description": "mail_inbox / mail_search sonucundaki id değeri." }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "mail_draft_reply",
+    "description": "Bir e-postaya cevap TASLAĞI oluşturur; asla göndermez. Metni Tolga Bey'in isteğine göre yaz, önce ona özetle, onay alınca bu aracı çağır. Taslak Gmail'in Taslaklar klasörüne düşer; göndermeyi Tolga Bey yapar.",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/mail_draft_reply",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": ["message_id", "body"],
+        "properties": {
+          "message_id": { "type": "string", "description": "Cevaplanacak iletinin id'si." },
+          "body": { "type": "string", "description": "Cevap metni, düz yazı. Selamlama ve imza dahil (imza: Dr. Tolga Topcubaşı)." }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "calendar_upcoming",
+    "description": "Google Takvim'deki yaklaşan etkinlikleri getirir. 'Bugün ne var', 'yarın toplantım var mı', 'bu hafta program' gibi sorularda kullan.",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/calendar_upcoming",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "days": { "type": "integer", "description": "Bugünden itibaren kaç gün. Varsayılan 1; 'bu hafta' için 7." }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "sheet_query",
+    "description": "Tolga Bey'in Google Sheets kayıtlarını okur. sheet='durum_defteri' projelerin (makale, kitap, başvuru) son durumunu tutar; sheet='tt_robotics' okullar, setler, satışlar ve görüşmeleri tutar. 'Makalenin son durumu', 'hangi okulda hangi set var', 'şu okulla kim görüştü' gibi sorularda kullan. search ile satırları daralt.",
+    "response_timeout_secs": 20,
+    "api_schema": {
+      "url": "{{BACKEND_URL}}/tools/sheet_query",
+      "method": "POST",
+      "request_headers": { "X-Jarvis-Key": "{{SECRET}}" },
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": ["sheet"],
+        "properties": {
+          "sheet": { "type": "string", "description": "'durum_defteri' ya da 'tt_robotics'." },
+          "tab": { "type": "string", "description": "Sayfa (sekme) adı, ör. 'Okullar', 'Setler', 'Satışlar'. Boşsa ilk sekme." },
+          "search": { "type": "string", "description": "Satırları bu kelimeyle filtrele (okul adı, set adı, proje adı). Boşsa hepsi." }
+        }
+      }
+    }
+  }
+]

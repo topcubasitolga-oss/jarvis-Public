@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jarvis</title>
+<meta name="description" content="Jarvis — kişisel sesli asistan">
+<meta name="theme-color" content="#0a0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen console — slim header, the orb in the middle, transcript rising from below, a text composer pinned to the bottom. */
+:root{
+  color-scheme:dark;
+  --bg:#0a0d12; --bg-2:#10161e; --bg-3:#161d27;
+  --line:rgba(233,237,243,.08); --line-2:rgba(233,237,243,.16);
+  --fg:#e9edf3; --fg-2:#8f9aad; --fg-3:#5c6779;
+  --brass:#d6a85c; --brass-2:#f1c77a; --brass-dim:rgba(214,168,92,.14); --brass-glow:rgba(214,168,92,.45);
+  --ok:#62c48f; --warn:#e0b45b; --bad:#e06c5c;
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --radius:14px;
+  --gutter-l:max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r:max(16px, env(safe-area-inset-right, 0px));
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:var(--font-ui); font-size:15px; line-height:1.45;
+  display:grid; grid-template-rows:auto 1fr auto auto;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit; color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass-2); outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Header */
+.top{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding-block:14px; padding-left:var(--gutter-l); padding-right:var(--gutter-r);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex; align-items:center; gap:10px; min-width:0}
+.brand .mark{width:10px; height:10px; border-radius:50%; background:var(--brass); box-shadow:0 0 12px var(--brass-glow); flex:none}
+.brand .name{font-weight:600; letter-spacing:.22em; font-size:13px; text-transform:uppercase}
+.clock{font-family:var(--font-mono); font-size:12px; color:var(--fg-2); letter-spacing:.02em; white-space:nowrap; font-variant-numeric:tabular-nums}
+.icon-btn{
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--line-2); background:transparent;
+  display:inline-grid; place-items:center; color:var(--fg-2); flex:none;
+}
+.icon-btn:hover{color:var(--fg); border-color:var(--brass-dim); background:var(--brass-dim)}
+.icon-btn svg{width:18px; height:18px}
+
+/* Stage */
+.stage{
+  display:grid; place-items:center; align-content:center; gap:22px; min-height:0;
+  padding-block:16px; padding-left:var(--gutter-l); padding-right:var(--gutter-r);
+}
+.status{display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:12px; color:var(--fg-2); letter-spacing:.06em; text-transform:uppercase}
+.status .dot{width:7px; height:7px; border-radius:50%; background:var(--fg-3); transition:background .3s}
+body[data-state="connecting"] .status .dot{background:var(--warn)}
+body[data-state="listening"] .status .dot,body[data-state="speaking"] .status .dot{background:var(--ok)}
+
+.orb{
+  --size:min(176px, 44vw); --vad:0;
+  position:relative; width:var(--size); height:var(--size); border-radius:50%;
+  border:0; background:transparent; padding:0; isolation:isolate;
+}
+.orb .ring{
+  position:absolute; inset:0; border-radius:50%; border:1px solid var(--brass); opacity:.22; pointer-events:none;
+  transition:transform .12s ease-out, opacity .3s;
+}
+.orb .ring.r2{inset:-14px; opacity:.12}
+.orb .ring.r3{inset:-30px; opacity:.06}
+.orb .core{
+  position:absolute; inset:16px; border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, var(--brass-2), var(--brass) 48%, #8a6a35 100%);
+  box-shadow:0 0 36px var(--brass-glow), inset 0 -10px 24px rgba(0,0,0,.25);
+  display:grid; place-items:center; color:#1a1408;
+  transition:transform .2s, box-shadow .3s;
+}
+.orb:active .core{transform:scale(.97)}
+.orb .core svg{width:34%; height:34%}
+
+/* idle: slow breath */
+body[data-state="idle"] .orb .core{animation:breathe 4.2s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 28px var(--brass-glow), inset 0 -10px 24px rgba(0,0,0,.25)}50%{box-shadow:0 0 54px var(--brass-glow), inset 0 -10px 24px rgba(0,0,0,.25)}}
+/* connecting: ring sweeps */
+body[data-state="connecting"] .orb .ring.r1{border-style:dashed; opacity:.6; animation:spin 1.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* listening: ring follows the voice level */
+body[data-state="listening"] .orb .ring.r1{opacity:.7; transform:scale(calc(1 + var(--vad) * .32))}
+body[data-state="listening"] .orb .ring.r2{opacity:.3; transform:scale(calc(1 + var(--vad) * .18))}
+/* speaking: ripples outward */
+body[data-state="speaking"] .orb .ring{animation:ripple 1.8s ease-out infinite}
+body[data-state="speaking"] .orb .ring.r2{animation-delay:.45s}
+body[data-state="speaking"] .orb .ring.r3{animation-delay:.9s}
+@keyframes ripple{0%{transform:scale(.92); opacity:.55}100%{transform:scale(1.45); opacity:0}}
+@media (prefers-reduced-motion:reduce){ .orb .ring, .orb .core{animation:none!important; transition:none} }
+
+.hint{margin:0; color:var(--fg-2); font-size:15px; text-align:center; text-wrap:balance; min-height:1.5em}
+.hint strong{color:var(--fg); font-weight:500}
+
+/* Transcript */
+.log{
+  max-height:38vh; overflow-y:auto; overscroll-behavior:contain;
+  padding-block:10px; padding-left:var(--gutter-l); padding-right:var(--gutter-r);
+  display:flex; flex-direction:column; gap:10px;
+  border-top:1px solid var(--line);
+  scroll-behavior:smooth;
+}
+.log:empty{display:none}
+.msg{display:flex; gap:10px; align-items:flex-start; max-width:min(680px,100%); min-width:0}
+.msg.user{align-self:flex-end; flex-direction:row-reverse}
+.msg .who{
+  width:26px; height:26px; border-radius:50%; flex:none; display:grid; place-items:center;
+  font-family:var(--font-mono); font-size:11px; font-weight:500;
+  background:var(--brass-dim); color:var(--brass-2); border:1px solid rgba(214,168,92,.3);
+}
+.msg.user .who{background:var(--bg-3); color:var(--fg-2); border-color:var(--line-2)}
+.msg .bubble{
+  background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius); padding:9px 13px; min-width:0;
+  overflow-wrap:anywhere;
+}
+.msg.user .bubble{background:var(--bg-3)}
+.msg time{display:block; margin-top:4px; font-family:var(--font-mono); font-size:10.5px; color:var(--fg-3); letter-spacing:.04em}
+.meta{align-self:center; font-family:var(--font-mono); font-size:11px; color:var(--fg-3); letter-spacing:.06em; text-transform:uppercase}
+
+/* Composer */
+.composer{
+  display:flex; gap:8px; align-items:center;
+  padding-block:10px; padding-left:var(--gutter-l); padding-right:var(--gutter-r);
+  border-top:1px solid var(--line); background:var(--bg);
+}
+.composer form{display:flex; gap:8px; flex:1; min-width:0}
+.composer input{
+  flex:1; min-width:0; height:42px; padding:0 14px; border-radius:21px;
+  background:var(--bg-2); border:1px solid var(--line-2); color:var(--fg);
+}
+.composer input::placeholder{color:var(--fg-3)}
+.btn{
+  height:42px; padding:0 16px; border-radius:21px; border:1px solid var(--line-2); background:var(--bg-2); color:var(--fg);
+  white-space:nowrap;
+}
+.btn.primary{background:var(--brass); border-color:var(--brass); color:#1a1408; font-weight:500}
+.btn.primary:hover{background:var(--brass-2)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.45; cursor:default}
+
+/* Sheets (settings / first run) */
+.sheet{
+  position:fixed; inset:0; z-index:20; background:rgba(5,7,10,.72); backdrop-filter:blur(6px);
+  display:grid; place-items:end center;
+  padding-left:var(--gutter-l); padding-right:var(--gutter-r);
+  padding-bottom:max(12px, env(safe-area-inset-bottom,0px)); padding-top:max(12px, env(safe-area-inset-top,0px));
+}
+@media (min-width:640px){ .sheet{place-items:center} }
+.card{
+  width:100%; max-width:520px; max-height:100%; overflow:auto;
+  background:var(--bg-2); border:1px solid var(--line-2); border-radius:18px; padding:20px;
+  display:flex; flex-direction:column; gap:14px;
+}
+.card h2{margin:0; font-size:17px; font-weight:600; letter-spacing:.01em}
+.card p{margin:0; color:var(--fg-2); font-size:14px}
+.card ol{margin:0; padding-left:20px; color:var(--fg-2); font-size:14px; display:flex; flex-direction:column; gap:6px}
+.card ol b{color:var(--fg); font-weight:500}
+.field{display:flex; flex-direction:column; gap:6px}
+.field label{font-size:12.5px; color:var(--fg-2); letter-spacing:.04em; text-transform:uppercase}
+.field input,.field select{
+  height:42px; padding:0 12px; border-radius:10px; background:var(--bg); border:1px solid var(--line-2); color:var(--fg);
+  font-family:var(--font-mono); font-size:13.5px;
+}
+.field select{font-family:var(--font-ui)}
+.field .help{font-size:12.5px; color:var(--fg-3)}
+.row{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+.private-only[hidden]{display:none}
+
+/* Toast */
+.toast{
+  position:fixed; left:50%; bottom:calc(76px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+  z-index:30; max-width:min(92vw,520px); padding:10px 14px; border-radius:12px;
+  background:var(--bg-3); border:1px solid var(--line-2); color:var(--fg); font-size:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+}
+.toast.bad{border-color:rgba(224,108,92,.5)}
+</style>
+</head>
+<body data-state="idle">
+
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span class="name">Jarvis</span></div>
+  <div class="clock" id="clock" aria-live="off">—</div>
+  <button class="icon-btn" id="settingsBtn" type="button" aria-label="Ayarlar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+
+<main class="stage">
+  <div class="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Hazır</span></div>
+  <button class="orb" id="orb" type="button" aria-pressed="false" aria-label="Jarvis'i uyandır">
+    <span class="ring r3" aria-hidden="true"></span>
+    <span class="ring r2" aria-hidden="true"></span>
+    <span class="ring r1" aria-hidden="true"></span>
+    <span class="core">
+      <svg id="icoMic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+      <svg id="icoWave" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4"/><path d="M8 7v10"/><path d="M12 4v16"/><path d="M16 7v10"/><path d="M20 10v4"/></svg>
+    </span>
+  </button>
+  <p class="hint" id="hint">Dokun ve konuş</p>
+</main>
+
+<section class="log" id="log" aria-live="polite" aria-label="Konuşma dökümü"></section>
+
+<footer class="composer">
+  <form id="textForm" autocomplete="off">
+    <input id="textInput" type="text" placeholder="Yazarak da sorabilirsiniz…" aria-label="Jarvis'e yaz" enterkeyhint="send">
+    <button class="btn" id="sendBtn" type="submit">Gönder</button>
+  </form>
+  <button class="btn ghost danger" id="endBtn" type="button" hidden>Bitir</button>
+</footer>
+
+<div class="sheet" id="settings" hidden>
+  <form class="card" id="settingsForm">
+    <div id="intro">
+      <h2>Jarvis'i uyandırmak için bir son adım</h2>
+      <p>Bu uygulama, ElevenLabs'te oluşturduğunuz Jarvis ajanına bağlanır. Ajanın kimliğini bir kez girin; cihazınızda saklanır.</p>
+      <ol>
+        <li><b>ElevenLabs</b> hesabınızda Agents bölümünden Jarvis ajanını açın.</li>
+        <li>Ajanın <b>Agent ID</b> değerini kopyalayın (agent_ ile başlar).</li>
+        <li>Aşağıya yapıştırıp kaydedin. Sonra büyük düğmeye basın.</li>
+      </ol>
+    </div>
+    <h2 id="settingsTitle" hidden>Ayarlar</h2>
+    <div class="field">
+      <label for="agentId">Agent ID</label>
+      <input id="agentId" type="text" placeholder="agent_xxxxxxxxxxxxxxxxxxxx" spellcheck="false" autocapitalize="off">
+    </div>
+    <div class="field">
+      <label for="mode">Bağlantı</label>
+      <select id="mode">
+        <option value="public">Açık ajan — doğrudan ElevenLabs'e bağlan</option>
+        <option value="private">Özel ajan — backend üzerinden imzalı bağlantı</option>
+      </select>
+      <span class="help">Araçlar (Gmail, Takvim) bağlandıktan sonra ajanı özel yapıp bu seçeneğe geçin.</span>
+    </div>
+    <div class="field private-only" id="backendUrlField" hidden>
+      <label for="backendUrl">Backend adresi</label>
+      <input id="backendUrl" type="url" placeholder="https://jarvis-backend.example.app" spellcheck="false" autocapitalize="off">
+    </div>
+    <div class="field private-only" id="backendKeyField" hidden>
+      <label for="backendKey">Backend anahtarı</label>
+      <input id="backendKey" type="password" placeholder="JARVIS_KEY" spellcheck="false" autocapitalize="off">
+      <span class="help">Backend'in .env dosyasındaki JARVIS_KEY ile aynı olmalı.</span>
+    </div>
+    <div class="row">
+      <button class="btn ghost" type="button" id="cancelBtn">Vazgeç</button>
+      <button class="btn primary" type="submit">Kaydet</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.28.0/dist/lib.iife.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const CFG_KEY = "jarvis.settings.v1";
+  const DEFAULTS = { agentId: "", mode: "public", backendUrl: "", backendKey: "" };
+
+  // ---- ayarlar (cihazda saklanır) ------------------------------------------
+  function loadCfg() {
+    try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(CFG_KEY) || "{}")) }; }
+    catch { return { ...DEFAULTS }; }
+  }
+  function saveCfg(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch {} }
+  let cfg = loadCfg();
+
+  // ---- durum ----------------------------------------------------------------
+  const body = document.body, orb = $("orb"), hint = $("hint"), statusText = $("statusText");
+  const icoMic = $("icoMic"), icoWave = $("icoWave"), endBtn = $("endBtn"), log = $("log");
+  let convo = null;
+  let wakeLock = null;
+
+  const COPY = {
+    idle:       { status: "Hazır",        hint: "Dokun ve konuş",               label: "Jarvis'i uyandır" },
+    connecting: { status: "Bağlanıyor",   hint: "Jarvis uyanıyor…",             label: "Bağlanıyor" },
+    listening:  { status: "Dinliyor",     hint: "Sizi dinliyor. Konuşabilirsiniz.", label: "Oturumu bitir" },
+    speaking:   { status: "Konuşuyor",    hint: "Jarvis konuşuyor",             label: "Oturumu bitir" },
+  };
+  function setState(s) {
+    body.dataset.state = s;
+    const c = COPY[s] || COPY.idle;
+    statusText.textContent = c.status;
+    hint.innerHTML = c.hint;
+    orb.setAttribute("aria-label", c.label);
+    orb.setAttribute("aria-pressed", String(s !== "idle"));
+    icoMic.hidden = s === "speaking";
+    icoWave.hidden = s !== "speaking";
+    endBtn.hidden = s === "idle";
+    if (s !== "listening") orb.style.setProperty("--vad", "0");
+  }
+
+  // ---- döküm ----------------------------------------------------------------
+  const fmtTime = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  function addBubble(role, text) {
+    if (!text) return;
+    const el = document.createElement("div");
+    el.className = "msg " + (role === "user" ? "user" : "agent");
+    const who = document.createElement("span"); who.className = "who"; who.textContent = role === "user" ? "T" : "J";
+    const b = document.createElement("div"); b.className = "bubble"; b.textContent = text;
+    const t = document.createElement("time"); t.textContent = fmtTime.format(new Date()); b.appendChild(t);
+    el.append(who, b); log.appendChild(el); log.scrollTop = log.scrollHeight;
+  }
+  function addMeta(text) {
+    const el = document.createElement("div"); el.className = "meta"; el.textContent = text;
+    log.appendChild(el); log.scrollTop = log.scrollHeight;
+  }
+
+  // ---- bildirim --------------------------------------------------------------
+  let toastTimer;
+  function toast(msg, bad = false) {
+    const t = $("toast"); t.textContent = msg; t.className = "toast" + (bad ? " bad" : ""); t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, bad ? 6000 : 3200);
+  }
+  function humanError(e) {
+    const m = (e && (e.message || e)) + "";
+    if (/NotAllowed|Permission|denied/i.test(m)) return "Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verip tekrar deneyin.";
+    if (/NotFound|no device|Requested device/i.test(m)) return "Mikrofon bulunamadı.";
+    if (/401|403/.test(m)) return "Backend anahtarı reddedildi. Ayarlar'daki anahtarı kontrol edin.";
+    if (/Failed to fetch|NetworkError|network/i.test(m)) return "Bağlantı kurulamadı. İnternet ve backend adresini kontrol edin.";
+    return "Bağlanamadı: " + m;
+  }
+
+  // ---- oturum ---------------------------------------------------------------
+  async function start() {
+    if (convo || body.dataset.state === "connecting") return;
+    if (!window.ElevenLabsClient) { toast("Ses kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.", true); return; }
+    if (cfg.mode === "public" && !cfg.agentId) { openSettings(true); return; }
+    if (cfg.mode === "private" && (!cfg.backendUrl || !cfg.backendKey)) { openSettings(false); toast("Özel mod için backend adresi ve anahtarı gerekli."); return; }
+
+    setState("connecting");
+    try {
+      // izin penceresini biz açalım ki hata mesajı anlaşılır olsun
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+      probe.getTracks().forEach((t) => t.stop());
+
+      const callbacks = {
+        onConnect: () => { addMeta("Oturum başladı · " + fmtTime.format(new Date())); if (body.dataset.state === "connecting") setState("listening"); },
+        onDisconnect: () => { convo = null; setState("idle"); releaseWakeLock(); addMeta("Oturum bitti"); },
+        onError: (msg) => toast("Jarvis: " + msg, true),
+        onMessage: ({ message, role, source }) => addBubble(role || (source === "ai" ? "agent" : "user"), message),
+        onModeChange: ({ mode }) => { if (convo) setState(mode === "speaking" ? "speaking" : "listening"); },
+        onStatusChange: ({ status }) => { if (status === "disconnected" && convo) { convo = null; setState("idle"); releaseWakeLock(); } },
+        onVadScore: ({ vadScore }) => orb.style.setProperty("--vad", Math.min(1, Math.max(0, vadScore)).toFixed(2)),
+      };
+
+      let opts;
+      if (cfg.mode === "private") {
+        const r = await fetch(cfg.backendUrl.replace(/\/+$/, "") + "/signed-url", { headers: { "X-Jarvis-Key": cfg.backendKey } });
+        if (!r.ok) throw new Error("Backend " + r.status);
+        const { signed_url } = await r.json();
+        opts = { signedUrl: signed_url, connectionType: "websocket", ...callbacks };
+      } else {
+        opts = { agentId: cfg.agentId.trim(), connectionType: "webrtc", ...callbacks };
+      }
+      convo = await window.ElevenLabsClient.Conversation.startSession(opts);
+      requestWakeLock();
+    } catch (e) {
+      convo = null; setState("idle"); toast(humanError(e), true);
+    }
+  }
+  async function stop() {
+    const c = convo; convo = null;
+    setState("idle"); releaseWakeLock();
+    if (c) { try { await c.endSession(); } catch {} addMeta("Oturum bitti"); }
+  }
+  async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {} }
+  function releaseWakeLock() { try { wakeLock?.release(); } catch {} wakeLock = null; }
+
+  orb.addEventListener("click", () => (convo ? stop() : start()));
+  endBtn.addEventListener("click", stop);
+  document.addEventListener("keydown", (e) => {
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || "");
+    if (e.code === "Space" && !typing && $("settings").hidden) { e.preventDefault(); convo ? stop() : start(); }
+    if (e.key === "Escape" && convo) stop();
+  });
+
+  // ---- yazarak sorma --------------------------------------------------------
+  $("textForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = $("textInput").value.trim();
+    if (!text) return;
+    if (!convo) { toast("Önce büyük düğmeyle Jarvis'i uyandırın."); return; }
+    try { convo.sendUserMessage(text); addBubble("user", text); $("textInput").value = ""; }
+    catch (err) { toast("Gönderilemedi: " + err.message, true); }
+  });
+
+  // ---- ayarlar paneli -------------------------------------------------------
+  const sheet = $("settings"), modeSel = $("mode");
+  function syncPrivateFields() {
+    const priv = modeSel.value === "private";
+    $("backendUrlField").hidden = !priv; $("backendKeyField").hidden = !priv;
+  }
+  function openSettings(firstRun) {
+    $("intro").hidden = !firstRun; $("settingsTitle").hidden = firstRun; $("cancelBtn").hidden = firstRun && !cfg.agentId;
+    $("agentId").value = cfg.agentId; modeSel.value = cfg.mode; $("backendUrl").value = cfg.backendUrl; $("backendKey").value = cfg.backendKey;
+    syncPrivateFields(); sheet.hidden = false; $("agentId").focus();
+  }
+  modeSel.addEventListener("change", syncPrivateFields);
+  $("settingsBtn").addEventListener("click", () => openSettings(false));
+  $("cancelBtn").addEventListener("click", () => { sheet.hidden = true; });
+  $("settingsForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const next = {
+      agentId: $("agentId").value.trim(), mode: modeSel.value,
+      backendUrl: $("backendUrl").value.trim(), backendKey: $("backendKey").value.trim(),
+    };
+    if (next.mode === "public" && !next.agentId) { toast("Agent ID boş olamaz.", true); return; }
+    cfg = next; saveCfg(cfg); sheet.hidden = true; toast("Kaydedildi.");
+  });
+
+  // ---- saat -----------------------------------------------------------------
+  const fmtDate = new Intl.DateTimeFormat("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  function tick() { const d = new Date(); $("clock").textContent = fmtDate.format(d) + " · " + fmtTime.format(d); }
+  tick(); setInterval(tick, 20000);
+
+  // ---- PWA ------------------------------------------------------------------
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  }
+
+  // ---- ilk açılış -------------------------------------------------------------
+  setState("idle");
+  if (!cfg.agentId) openSettings(true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# gizli şeyler
+backend/.env
+backend/credentials.json
+backend/token.json
+agent/agent_id.txt
+
+# araç çöpleri
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.DS_Store

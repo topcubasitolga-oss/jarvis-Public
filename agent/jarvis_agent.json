@@ -1,0 +1,29 @@
+{
+  "name": "Jarvis",
+  "conversation_config": {
+    "agent": {
+      "first_message": "Buyurun efendim.",
+      "language": "tr",
+      "prompt": {
+        "prompt": "{{SYSTEM_PROMPT}}",
+        "llm": "claude-sonnet-5-5",
+        "temperature": 0.4,
+        "max_tokens": -1,
+        "timezone": "Europe/Istanbul"
+      }
+    },
+    "tts": {
+      "voice_id": "{{VOICE_ID}}",
+      "model_id": "eleven_v4_turbo",
+      "stability": 0.55,
+      "similarity_boost": 0.8,
+      "speed": 0.97
+    },
+    "turn": {
+      "turn_timeout": 7
+    },
+    "conversation": {
+      "max_duration_seconds": 1800
+    }
+  }
+}

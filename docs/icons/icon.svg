@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-<circle cx="50" cy="50" r="50" fill="#0a0d12"/>
-<circle cx="50" cy="50" r="46" fill="none" stroke="#d6a85c" stroke-width="1.8"/>
-<g fill="#d6a85c">
-<rect x="23" y="39" width="6" height="22" rx="3"/>
-<rect x="34" y="29" width="6" height="42" rx="3"/>
-<rect x="45" y="17" width="6" height="66" rx="3" fill="#f1c77a"/>
-<rect x="56" y="29" width="6" height="42" rx="3"/>
-<rect x="67" y="39" width="6" height="22" rx="3"/>
-</g>
+<defs><radialGradient id="c" cx="42%" cy="42%" r="60%"><stop offset="0" stop-color="#f0fdff"/><stop offset=".35" stop-color="#8ce8ff"/><stop offset=".75" stop-color="#1696d7"/><stop offset="1" stop-color="#06466e"/></radialGradient>
+<radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#45d4ff" stop-opacity=".55"/><stop offset="1" stop-color="#45d4ff" stop-opacity="0"/></radialGradient></defs>
+<circle cx="50" cy="50" r="50" fill="#040a12"/>
+<circle cx="50" cy="50" r="40" fill="url(#g)"/>
+<circle cx="50" cy="50" r="26" fill="none" stroke="#9aeaff" stroke-opacity=".9" stroke-width="2.2" stroke-dasharray="30 134" stroke-dashoffset="-20"/>
+<circle cx="50" cy="50" r="32" fill="none" stroke="#9aeaff" stroke-opacity=".6" stroke-width="1.4" stroke-dasharray="70 131" stroke-dashoffset="60"/>
+<circle cx="50" cy="50" r="18" fill="url(#c)" stroke="#bef5ff" stroke-width="1"/>
 </svg>

@@ -1,6 +1,6 @@
 // Jarvis — küçük bir service worker: uygulama kabuğunu önbelleğe alır (ana ekrana eklenebilsin),
 // ağ varsa her zaman ağdan taze sürümü getirir, yoksa önbellekten açar.
-const CACHE = "jarvis-shell-v1";
+const CACHE = "jarvis-shell-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

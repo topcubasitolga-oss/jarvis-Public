@@ -61,9 +61,31 @@ function clampInt(v, def, min, max) { var n = parseInt(v, 10); if (isNaN(n)) n =
 function truthy(v, def) { if (v === undefined || v === null || v === "") return def; return String(v).toLowerCase() !== "false" && v !== false && v !== 0 && String(v) !== "0"; }
 function clip(s, n) { s = String(s || ""); return s.length > n ? s.slice(0, n) + " […]" : s; }
 
+// Gmail'e bağlı posta kutuları: Jarvis "hesap" adıyla filtreler, cevap taslağı doğru adresten çıkar.
+var ACCOUNTS = {
+  gmail: "topcubasitolga@gmail.com",
+  hotmail: "tolga.121@hotmail.com",
+  "29mayis": "ttopcubasi@29mayis.edu.tr"
+};
+function accountOf(m) {
+  var hay = ((m.getTo() || "") + " " + (m.getCc() || "") + " " + (m.getHeader("Delivered-To") || "") + " " + (m.getHeader("X-Forwarded-To") || "")).toLowerCase();
+  for (var k in ACCOUNTS) if (k !== "gmail" && hay.indexOf(ACCOUNTS[k].toLowerCase()) >= 0) return k;
+  return "gmail";
+}
+function accountQuery(account) {
+  var k = String(account || "").toLowerCase().replace(/\s/g, "");
+  if (k === "universite" || k === "üniversite" || k === "okul" || k === "kurum") k = "29mayis";
+  if (k === "outlook") k = "hotmail";
+  if (!k || k === "hepsi" || k === "all") return "";
+  if (k === "gmail") return " -to:" + ACCOUNTS.hotmail + " -to:" + ACCOUNTS["29mayis"];
+  if (ACCOUNTS[k]) return " to:" + ACCOUNTS[k];
+  return "";
+}
+
 function msgSummary(m) {
   return {
     id: m.getId(),
+    account: accountOf(m),
     from: m.getFrom(),
     subject: m.getSubject() || "(konu yok)",
     date: fmt(m.getDate()),
@@ -86,15 +108,15 @@ function searchMessages(query, limit) {
 function mailInbox(p) {
   var days = clampInt(p.days, 1, 1, 30), limit = clampInt(p.limit, 10, 1, 25);
   var unread = truthy(p.unread_only, true);
-  var q = "in:inbox newer_than:" + days + "d -category:promotions -category:social" + (unread ? " is:unread" : "");
+  var q = "in:inbox newer_than:" + days + "d -category:promotions -category:social" + (unread ? " is:unread" : "") + accountQuery(p.account);
   var list = searchMessages(q, limit);
-  return { count: list.length, window_days: days, unread_only: unread, messages: list };
+  return { count: list.length, window_days: days, unread_only: unread, account: p.account || "hepsi", messages: list };
 }
 
 function mailSearch(p) {
   if (!p.query) return { error: "query gerekli" };
-  var list = searchMessages(String(p.query), clampInt(p.limit, 10, 1, 25));
-  return { count: list.length, query: p.query, messages: list };
+  var list = searchMessages(String(p.query) + accountQuery(p.account), clampInt(p.limit, 10, 1, 25));
+  return { count: list.length, query: p.query, account: p.account || "hepsi", messages: list };
 }
 
 function mailRead(p) {
@@ -110,8 +132,15 @@ function mailRead(p) {
 function mailDraftReply(p) {
   if (!p.message_id || !p.body) return { error: "message_id ve body gerekli" };
   var m = GmailApp.getMessageById(String(p.message_id));
-  var d = m.createDraftReply(String(p.body));
+  // İleti hotmail/29 Mayıs adresine gelmişse ve o adres Gmail'de "farklı gönder" olarak tanımlıysa taslak o adresten çıkar.
+  var acc = accountOf(m), opts = {};
+  if (acc !== "gmail") {
+    var aliases = GmailApp.getAliases().map(function (a) { return a.toLowerCase(); });
+    if (aliases.indexOf(ACCOUNTS[acc].toLowerCase()) >= 0) opts.from = ACCOUNTS[acc];
+  }
+  var d = m.createDraftReply(String(p.body), opts);
   return { status: "taslak_hazir", draft_id: d.getId(), to: m.getReplyTo() || m.getFrom(), subject: "Re: " + m.getSubject(),
+           from: opts.from || ACCOUNTS.gmail, account: acc,
            note: "Gönderilmedi. Gmail > Taslaklar klasöründe; göndermeyi Tolga Bey yapar." };
 }
 

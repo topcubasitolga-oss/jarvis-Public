@@ -88,48 +88,27 @@ Mikrofon için HTTPS şart; en kolay iki yol:
 
 ---
 
-## Aşama 2 — Gözleri ve elleri: Gmail, Takvim, Sheets
+## Aşama 2 — Gözleri ve elleri: Gmail, Takvim, Drive, Hafıza (kurulu ✅)
 
-### 1. Google izni (bir kez, kendi bilgisayarınızda, ~10 dk)
-1. console.cloud.google.com → yeni proje (adı "Jarvis" olabilir).
-2. **APIs & Services → Library**: *Gmail API*, *Google Calendar API*, *Google Sheets API* → Enable.
-3. **OAuth consent screen**: External → uygulama adı Jarvis → *Test users* bölümüne kendi Gmail adresinizi ekleyin.
-4. **Credentials → Create credentials → OAuth client ID → Desktop app** → JSON'u indirin →
-   `backend/credentials.json` adıyla kaydedin.
-5. Terminalde:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python google_auth.py
-   ```
-   Tarayıcı açılır, izin verirsiniz, `token.json` oluşur. Script sonunda bulut için base64 değer yazdırır; saklayın.
+Sunucu yok: köprü, **Google Apps Script** web uygulaması olarak Tolga'nın kendi Google hesabında çalışır
+(`apps-script/Code.gs`). ElevenLabs'teki dört webhook aracı (`gmail`, `takvim`, `drive`, `hafiza`) bu köprüye
+POST atar; köprü her isteği gizli anahtarla doğrular ve yalnızca okur (tek yazma işi cevap **taslağı** ve
+hafıza notu). Post-call webhook, her konuşmanın dökümünü Drive'daki **"Jarvis Hafıza"** tablosuna işler.
 
-### 2. Backend'i yayınlayın
-Yerelde denemek için: `cp .env.example .env` → doldurun → `uvicorn main:app --reload`.
-Bulutta en kolayı **Railway** ya da **Render**: GitHub deposunu bağlayın, kök dizin `backend`,
-ortam değişkenlerini `.env.example`'daki adlarla girin (`GOOGLE_TOKEN_JSON` = base64 değer).
-Yayınlanınca `https://ADRES/health` çalışıyor olmalı.
+Yeniden kurmak gerekirse:
+1. script.google.com → yeni proje → `apps-script/Code.gs` içeriğini yapıştır, `JARVIS_KEY`'e uzun rastgele bir anahtar yaz.
+2. Dağıt → Yeni dağıtım → Web uygulaması → Çalıştıran: Ben · Erişim: Herkes → Dağıt → izin ver → `/exec` adresini al.
+3. ElevenLabs → Agent → Tools → Add tool → Webhook → "Edit as JSON": POST, URL = köprü adresi, gövdede
+   `key` (constant) + `action` (enum) + parametreler; `follow_redirects: true`,
+   `follow_redirects_allowed_domains: ["script.googleusercontent.com","script.google.com"]` (Apps Script yönlendirmeyle cevap verir).
+4. Agents → Settings → Post-Call Webhook → URL: `…/exec?key=ANAHTAR&action=post_call`, olay: Transcript.
+5. Sistem talimatına "Araçların" bölümünü ekle (`agent/system_prompt.md`).
 
-`JARVIS_KEY` için uzun rastgele bir parola üretin: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+Notion için: notion.so/profile/integrations → yeni dahili entegrasyon → token'ı Apps Script'te
+Proje ayarları → Script Properties → `NOTION_TOKEN` olarak kaydet; Jarvis'in görmesini istediğin sayfaları
+entegrasyonla paylaş; ElevenLabs'e `notion` aracını ekle (action: notion_search / notion_read).
 
-### 3. Araçları Jarvis'e bağlayın
-ElevenLabs panelinde Agents → Settings → **Secrets** → `JARVIS_KEY` değerini kaydedin, verilen
-secret kimliğini alın. Sonra:
-```bash
-python agent/add_tools.py --agent-id AGENT_ID --backend-url https://ADRES --secret-id SECRET_ID
-```
-Altı araç oluşur ve ajana bağlanır: `mail_inbox`, `mail_search`, `mail_read`, `mail_draft_reply`,
-`calendar_upcoming`, `sheet_query`. Panelde Agent → Tools altında görünür.
-
-### 4. Ajanı özel yapın, uygulamayı özel moda alın
-Ajan ayarlarında **Security → Enable authentication** (ajan artık yalnızca imzalı bağlantıyla açılır).
-Backend `.env`'ine `ELEVENLABS_API_KEY` ve `ELEVENLABS_AGENT_ID` girin. Uygulamada ⚙ →
-Bağlantı: **Özel ajan** → backend adresi ve `JARVIS_KEY` → Kaydet.
-
-### 5. Deneyin
-"Bugün mail var mı?", "Dergiden mail gelmiş mi?", "Şu maili oku", "Buna kibar bir cevap taslağı hazırla",
-"Yarın programım ne?". Jarvis mail **göndermez**: taslağı Gmail'in Taslaklar klasörüne bırakır,
-göndermek size kalır.
+`backend/` klasöründeki FastAPI sürümü alternatif olarak duruyor (kendi sunucunu kurmak istersen).
 
 ---
 

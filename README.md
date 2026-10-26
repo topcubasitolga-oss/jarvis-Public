@@ -1,5 +1,7 @@
 # Jarvis — kişisel sesli asistan
 
+**Uygulama:** https://topcubasitolga-oss.github.io/jarvis-Public/ · **Depo:** https://github.com/topcubasitolga-oss/jarvis-Public
+
 Telefonda ya da masaüstünde tek dokunuşla açılan, "Buyurun efendim." diyen, Gmail'e, takvime ve
 kayıtlara bakabilen kişisel asistan. Beyni Claude, sesi ElevenLabs, karakteri `agent/system_prompt.md`.
 
@@ -71,7 +73,7 @@ Mikrofon için HTTPS şart; en kolay iki yol:
 
 - **GitHub Pages:** bu klasörü bir GitHub deposuna koyun → repo Settings → Pages →
   Source: *Deploy from a branch* → Branch: `main`, klasör: **/docs** → Save. Adres:
-  `https://KULLANICI.github.io/DEPO/`
+  `https://topcubasitolga-oss.github.io/jarvis-Public/`
 - **Netlify Drop:** app.netlify.com/drop sayfasına `docs` klasörünü sürükleyin; anında bir adres verir.
 
 ### 6. Telefona ekleyin ve uyandırın

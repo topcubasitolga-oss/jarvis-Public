@@ -102,14 +102,13 @@ body[data-state="speaking"] .status .dot{background:var(--cyan-2); box-shadow:0 
 /* ---- log ---- */
 .log{
   margin-inline:var(--gutter-l) var(--gutter-r); margin-bottom:8px;
-  max-height:30vh; min-height:76px; overflow-y:auto; overscroll-behavior:contain;
+  max-height:30vh; min-height:76px; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
   padding:10px 12px; border:1px solid var(--line); background:rgba(7,18,33,.72);
   display:flex; flex-direction:column; gap:4px; font-size:12.5px; scroll-behavior:smooth;
-  position:relative;
+  border-left:2px solid var(--cyan);
 }
-.log::before{content:""; position:absolute; left:-1px; top:-1px; width:10px; height:10px; border-left:1px solid var(--cyan); border-top:1px solid var(--cyan)}
-.log::after{content:""; position:absolute; right:-1px; bottom:-1px; width:10px; height:10px; border-right:1px solid var(--cyan); border-bottom:1px solid var(--cyan)}
-.ln{display:grid; grid-template-columns:auto auto 1fr; gap:0 10px; min-width:0; overflow-wrap:anywhere}
+.ln{display:grid; grid-template-columns:auto auto minmax(0,1fr); gap:0 10px; min-width:0; overflow-wrap:anywhere}
+.ln .txt{min-width:0}
 .ln .ts{color:var(--fg-3); font-variant-numeric:tabular-nums}
 .ln .who{color:var(--fg-3); letter-spacing:.1em}
 .ln.jarvis .who{color:var(--cyan)}
